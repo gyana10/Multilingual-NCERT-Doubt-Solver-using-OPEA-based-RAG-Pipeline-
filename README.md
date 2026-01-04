@@ -68,7 +68,18 @@ RAGNCERT/
 ├── database/           # SQLite DB and related helpers (if used)
 └── utils/              # Utility modules (helpers, preprocessing, etc.)
 ```
-
+##For the dataset 
+we have folder like
+```
+RAGNCERT/
+|__ ncert/
+      |__ class5/
+         |__ pdf files
+      |__ class6/
+      .....
+   .....
+   
+```
 ## API Endpoints
 
 - `GET /` - Main chat interface
@@ -95,5 +106,6 @@ The application can be configured using environment variables in the `.env` file
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
+
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
