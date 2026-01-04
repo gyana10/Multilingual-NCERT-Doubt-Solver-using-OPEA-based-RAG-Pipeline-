@@ -1,0 +1,192 @@
+version: '3.8'
+
+services:
+  # API Gateway - Entry point for all requests
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://raguser:ragpass@postgres:5432/ragncert
+      - DATA_INGESTION_URL=http://data-ingestion:8001
+      - EMBEDDING_URL=http://embedding-service:8002
+      - RETRIEVAL_URL=http://retrieval-service:8003
+      - GENERATION_URL=http://generation-service:8004
+      - CONVERSATION_URL=http://conversation-service:8005
+      - FEEDBACK_URL=http://feedback-service:8006
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ragncert-network
+
+  # Data Ingestion Service - PDF/OCR processing
+  data-ingestion:
+    build: ./services/data-ingestion
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://raguser:ragpass@postgres:5432/ragncert
+    volumes:
+      - ./ncert:/app/ncert:ro
+      - ./ncert_processed:/app/ncert_processed
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ragncert-network
+
+  # Embedding Service - Vector embeddings and FAISS indexing
+  embedding-service:
+    build: ./services/embedding-service
+    ports:
+      - "8002:8002"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://raguser:ragpass@postgres:5432/ragncert
+      - MODEL_NAME=intfloat/multilingual-e5-large
+      - BATCH_SIZE=32
+    volumes:
+      - ./embeddings:/app/embeddings
+      - ./chunks:/app/chunks
+      - ./models:/app/models  # Model cache
+    depends_on:
+      - redis
+      - postgres
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - ragncert-network
+
+  # Retrieval Service - Intelligent search and ranking
+  retrieval-service:
+    build: ./services/retrieval-service
+    ports:
+      - "8003:8003"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://raguser:ragpass@postgres:5432/ragncert
+      - EMBEDDING_URL=http://embedding-service:8002
+    volumes:
+      - ./embeddings:/app/embeddings:ro
+      - ./chunks:/app/chunks:ro
+    depends_on:
+      - redis
+      - postgres
+      - embedding-service
+    networks:
+      - ragncert-network
+
+  # Generation Service - LLM-based answer generation
+  generation-service:
+    build: ./services/generation-service
+    ports:
+      - "8004:8004"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://raguser:ragpass@postgres:5432/ragncert
+      - OLLAMA_URL=http://ollama:11434
+      - MODEL_NAME=qwen2:7b
+    depends_on:
+      - redis
+      - postgres
+      - ollama
+    networks:
+      - ragncert-network
+
+  # Conversation Service - Session and context management
+  conversation-service:
+    build: ./services/conversation-service
+    ports:
+      - "8005:8005"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://raguser:ragpass@postgres:5432/ragncert
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ragncert-network
+
+  # Feedback Service - User feedback and analytics
+  feedback-service:
+    build: ./services/feedback-service
+    ports:
+      - "8006:8006"
+    environment:
+      - POSTGRES_URL=postgresql://raguser:ragpass@postgres:5432/ragncert
+    depends_on:
+      - postgres
+    networks:
+      - ragncert-network
+
+  # Ollama - Local LLM server
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - ragncert-network
+
+  # Redis - Caching and message queuing
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    networks:
+      - ragncert-network
+
+  # PostgreSQL - Metadata and conversation storage
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=ragncert
+      - POSTGRES_USER=raguser
+      - POSTGRES_PASSWORD=ragpass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ragncert-network
+
+  # Web Frontend - React.js application
+  web-frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_WS_URL=ws://localhost:8000/ws
+    depends_on:
+      - api-gateway
+    networks:
+      - ragncert-network
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  ragncert-network:
+    driver: bridge
