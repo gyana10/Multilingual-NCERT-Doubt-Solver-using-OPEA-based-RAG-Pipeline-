@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCERT Doubt Solver - AI Assistant</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .sidebar {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-mobile {
+            transform: translateX(-100%);
+        }
+
+        .sidebar-mobile.visible {
+            transform: translateX(0);
+        }
+
+        .chat-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .message-user {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 1rem;
+            max-width: 70%;
+        }
+
+        .message-assistant {
+            background: white;
+            color: var(--text-primary);
+            border-radius: 1rem;
+            max-width: 70%;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .citation-box {
+            background: var(--bg-tertiary);
+            border-left: 3px solid var(--primary-color);
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .citation-item {
+            background: white;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+        }
+
+        .input-wrapper {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 0.75rem;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .send-button {
+            background: var(--primary-color);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            transition: all 0.3s ease;
+        }
+
+        .send-button:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .floating-icon {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-animation {
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+        }
+
+        @keyframes modalSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-animation {
+            animation: modalSlide 0.3s ease-out;
+        }
+
+        .star-rating {
+            font-size: 2rem;
+            color: #d1d5db;
+            cursor: pointer;
+        }
+
+        .star-rating.active {
+            color: #fbbf24;
+        }
+
+        .loading-overlay {
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+        }
+
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border: 2px solid var(--border-color);
+            border-radius: 0.5rem;
+        }
+
+        .remove-image-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--danger-color);
+            color: white;
+        }
+
+        @media (max-width: 968px) {
+            .message-user, .message-assistant {
+                max-width: 85%;
+            }
+            
+            .sidebar-desktop {
+                display: none;
+            }
+        }
+
+        @media (min-width: 969px) {
+            .sidebar-mobile {
+                display: none;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .message-user, .message-assistant {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-mobile fixed inset-0 bg-black bg-opacity-50 z-40 hidden" id="mobileSidebarOverlay"></div>
+    
+    <!-- Mobile Sidebar -->
+    <div class="sidebar-mobile fixed left-0 top-0 h-full w-80 bg-white z-50 p-6 overflow-y-auto hidden" id="mobileSidebar">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold">Preferences</h2>
+            <button onclick="toggleMobileSidebar()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Grade Level</label>
+                <select id="mobileGradeSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Grades</option>
+                    <option value="5">Class 5</option>
+                    <option value="6">Class 6</option>
+                    <option value="7">Class 7</option>
+                    <option value="8">Class 8</option>
+                    <option value="9">Class 9</option>
+                    <option value="10">Class 10</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                <select id="mobileSubjectSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Subjects</option>
+                    <option value="Math">Mathematics</option>
+                    <option value="Science">Science</option>
+                    <option value="Social Science">Social Science</option>
+                    <option value="English">English</option>
+                    <option value="Hindi">Hindi</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                <select id="mobileLanguageSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="English">English</option>
+                    <option value="Hindi">Hindi</option>
+                    <option value="Urdu">Urdu</option>
+                    <option value="Tamil">Tamil</option>
+                    <option value="Telugu">Telugu</option>
+                    <option value="Bengali">Bengali</option>
+                    <option value="Marathi">Marathi</option>
+                    <option value="Gujarati">Gujarati</option>
+                    <option value="Kannada">Kannada</option>
+                    <option value="Malayalam">Malayalam</option>
+                </select>
+            </div>
+            
+            <button onclick="startNewConversation()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-lg font-medium transition-colors">
+                <i class="fas fa-plus mr-2"></i>New Conversation
+            </button>
+        </div>
+    </div>
+
+    <div class="flex">
+        <!-- Desktop Sidebar -->
+        <div class="sidebar-desktop w-80 bg-white border-r border-gray-200 h-screen sticky top-0 hidden md:block">
+            <div class="p-6">
+                <div class="flex items-center space-x-3 mb-8">
+                    <div class="bg-indigo-600 p-2 rounded-lg">
+                        <i class="fas fa-graduation-cap text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">NCERT Doubt Solver</h1>
+                        <p class="text-sm text-gray-500">AI-powered learning assistant</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Grade Level</label>
+                        <select id="desktopGradeSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">All Grades</option>
+                            <option value="5">Class 5</option>
+                            <option value="6">Class 6</option>
+                            <option value="7">Class 7</option>
+                            <option value="8">Class 8</option>
+                            <option value="9">Class 9</option>
+                            <option value="10">Class 10</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                        <select id="desktopSubjectSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">All Subjects</option>
+                            <option value="Math">Mathematics</option>
+                            <option value="Science">Science</option>
+                            <option value="Social Science">Social Science</option>
+                            <option value="English">English</option>
+                            <option value="Hindi">Hindi</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                        <select id="desktopLanguageSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="English">English</option>
+                            <option value="Hindi">Hindi</option>
+                            <option value="Urdu">Urdu</option>
+                            <option value="Tamil">Tamil</option>
+                            <option value="Telugu">Telugu</option>
+                            <option value="Bengali">Bengali</option>
+                            <option value="Marathi">Marathi</option>
+                            <option value="Gujarati">Gujarati</option>
+                            <option value="Kannada">Kannada</option>
+                            <option value="Malayalam">Malayalam</option>
+                        </select>
+                    </div>
+                    
+                    <button onclick="startNewConversation()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-lg font-medium transition-colors">
+                        <i class="fas fa-plus mr-2"></i>New Conversation
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="bg-white shadow-sm border-b h-16 flex items-center px-4">
+                <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="toggleMobileSidebar()" class="md:hidden text-gray-500 hover:text-gray-700 mr-2">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div class="bg-indigo-600 p-2 rounded-lg">
+                            <i class="fas fa-graduation-cap text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold text-gray-800">NCERT Doubt Solver</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="status-indicator" id="connectionStatus">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="fas fa-circle text-xs mr-1"></i>
+                                Connected
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Chat Area -->
+            <div class="flex-1 flex flex-col">
+                <!-- Welcome Screen -->
+                <div id="welcomeScreen" class="flex-1 flex flex-col items-center justify-center p-4 bg-gradient-to-br from-indigo-500 to-purple-600 text-white" style="display: flex;">
+                    <div class="text-center max-w-2xl">
+                        <div class="floating-icon mb-8">
+                            <i class="fas fa-robot text-8xl"></i>
+                        </div>
+                        <h1 class="text-4xl font-bold mb-4">NCERT Doubt Solver</h1>
+                        <p class="text-xl mb-8">Ask any question from your NCERT textbooks and get instant, accurate answers powered by AI.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="feature-card p-6">
+                                <i class="fas fa-book-open text-2xl mb-3"></i>
+                                <h3 class="text-lg font-semibold mb-2">NCERT Focused</h3>
+                                <p class="text-gray-200">Answers based exclusively on official NCERT textbooks for classes 5-10.</p>
+                            </div>
+                            
+                            <div class="feature-card p-6">
+                                <i class="fas fa-language text-2xl mb-3"></i>
+                                <h3 class="text-lg font-semibold mb-2">Multilingual</h3>
+                                <p class="text-gray-200">Get answers in multiple Indian languages including Hindi, Tamil, Telugu, and more.</p>
+                            </div>
+                            
+                            <div class="feature-card p-6">
+                                <i class="fas fa-lightbulb text-2xl mb-3"></i>
+                                <h3 class="text-lg font-semibold mb-2">Smart Learning</h3>
+                                <p class="text-gray-200">Step-by-step explanations with examples to help you understand concepts.</p>
+                            </div>
+                            
+                            <div class="feature-card p-6">
+                                <i class="fas fa-image text-2xl mb-3"></i>
+                                <h3 class="text-lg font-semibold mb-2">Image Support</h3>
+                                <p class="text-gray-200">Upload diagrams or math problems as images for instant solutions.</p>
+                            </div>
+                        </div>
+                        
+                        <button onclick="startChat()" class="bg-white text-indigo-600 hover:bg-gray-100 font-bold py-3 px-8 rounded-full text-lg transition-colors">
+                            <i class="fas fa-comment-dots mr-2"></i>Start Learning
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Container -->
+                <div id="chatContainer" class="flex-1 flex-col hidden">
+                    <div id="messagesContainer" class="chat-container p-4 space-y-6 overflow-y-auto"></div>
+                    
+                    <!-- Image Preview -->
+                    <div id="imagePreviewContainer" class="px-4 mb-2 hidden">
+                        <div class="relative inline-block">
+                            <img id="imagePreview" class="image-preview" src="" alt="Preview">
+                            <button onclick="removeImage()" class="remove-image-btn absolute -top-2 -right-2 flex items-center justify-center">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div class="border-t bg-white p-4">
+                        <div class="input-wrapper flex items-end space-x-3">
+                            <div class="flex space-x-2">
+                                <label class="cursor-pointer text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-image text-xl"></i>
+                                    <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                                </label>
+                                <button class="text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-microphone text-xl"></i>
+                                </button>
+                            </div>
+                            <textarea 
+                                id="messageInput" 
+                                placeholder="Ask your doubt here..." 
+                                class="flex-1 resize-none border-0 focus:ring-0 focus:outline-none py-2 px-1"
+                                rows="1"
+                                onInput="autoResize(this)"
+                                onKeyPress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"
+                            ></textarea>
+                            <button 
+                                onclick="sendMessage()" 
+                                id="sendButton"
+                                class="send-button flex items-center justify-center text-white disabled:opacity-50"
+                                disabled
+                            >
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500 text-center">
+                            Press Enter to send • Shift+Enter for new line
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="modal-overlay fixed inset-0 flex items-center justify-center hidden">
+        <div class="modal-animation bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">Rate this Answer</h3>
+                <button onclick="closeFeedbackModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="mb-6">
+                <div class="flex justify-center space-x-1 mb-4">
+                    <span class="star-rating" data-rating="1" onclick="setRating(1)">&#9733;</span>
+                    <span class="star-rating" data-rating="2" onclick="setRating(2)">&#9733;</span>
+                    <span class="star-rating" data-rating="3" onclick="setRating(3)">&#9733;</span>
+                    <span class="star-rating" data-rating="4" onclick="setRating(4)">&#9733;</span>
+                    <span class="star-rating" data-rating="5" onclick="setRating(5)">&#9733;</span>
+                </div>
+                
+                <textarea 
+                    id="feedbackComment" 
+                    placeholder="Tell us what you liked or how we can improve..." 
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                ></textarea>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeFeedbackModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">
+                    Cancel
+                </button>
+                <button onclick="submitFeedback()" id="submitFeedbackBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors" disabled>
+                    Submit
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay fixed inset-0 items-center justify-center hidden">
+        <div class="bg-white rounded-xl p-8 flex flex-col items-center">
+            <i class="fas fa-circle-notch fa-spin text-5xl text-indigo-600 mb-4"></i>
+            <p class="text-lg font-medium">Processing your question...</p>
+            <p class="text-gray-500 mt-2">This may take a few moments</p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = '/api';
+        let currentConversationId = null;
+        let currentRating = 0;
+        let currentMessageIndex = -1;
+        let extractedImageText = '';
+
+        // DOM Elements
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const chatContainer = document.getElementById('chatContainer');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const mobileSidebar = document.getElementById('mobileSidebar');
+        const mobileSidebarOverlay = document.getElementById('mobileSidebarOverlay');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkConnection();
+            messageInput.focus();
+            
+            // Sync select values between desktop and mobile
+            syncSelectValues();
+        });
+
+        // Sync select values between desktop and mobile
+        function syncSelectValues() {
+            const desktopGrade = document.getElementById('desktopGradeSelect');
+            const mobileGrade = document.getElementById('mobileGradeSelect');
+            const desktopSubject = document.getElementById('desktopSubjectSelect');
+            const mobileSubject = document.getElementById('mobileSubjectSelect');
+            const desktopLanguage = document.getElementById('desktopLanguageSelect');
+            const mobileLanguage = document.getElementById('mobileLanguageSelect');
+            
+            if (desktopGrade && mobileGrade) {
+                desktopGrade.addEventListener('change', () => mobileGrade.value = desktopGrade.value);
+                mobileGrade.addEventListener('change', () => desktopGrade.value = mobileGrade.value);
+            }
+            
+            if (desktopSubject && mobileSubject) {
+                desktopSubject.addEventListener('change', () => mobileSubject.value = desktopSubject.value);
+                mobileSubject.addEventListener('change', () => desktopSubject.value = mobileSubject.value);
+            }
+            
+            if (desktopLanguage && mobileLanguage) {
+                desktopLanguage.addEventListener('change', () => mobileLanguage.value = desktopLanguage.value);
+                mobileLanguage.addEventListener('change', () => desktopLanguage.value = mobileLanguage.value);
+            }
+        }
+
+        // Toggle mobile sidebar
+        function toggleMobileSidebar() {
+            mobileSidebar.classList.toggle('hidden');
+            mobileSidebarOverlay.classList.toggle('hidden');
+            
+            if (!mobileSidebar.classList.contains('hidden')) {
+                mobileSidebar.classList.add('visible');
+            } else {
+                mobileSidebar.classList.remove('visible');
+            }
+        }
+
+        // Close mobile sidebar when clicking overlay
+        mobileSidebarOverlay.addEventListener('click', toggleMobileSidebar);
+
+        // Start chat from welcome screen
+        function startChat() {
+            welcomeScreen.style.display = 'none';
+            chatContainer.classList.remove('hidden');
+            messageInput.focus();
+        }
+
+        // Start new conversation
+        function startNewConversation() {
+            currentConversationId = null;
+            messagesContainer.innerHTML = '';
+            extractedImageText = '';
+            imagePreviewContainer.classList.add('hidden');
+            
+            // Reset selects to default values
+            document.getElementById('desktopGradeSelect').value = '';
+            document.getElementById('mobileGradeSelect').value = '';
+            document.getElementById('desktopSubjectSelect').value = '';
+            document.getElementById('mobileSubjectSelect').value = '';
+            document.getElementById('desktopLanguageSelect').value = 'English';
+            document.getElementById('mobileLanguageSelect').value = 'English';
+            
+            // Close mobile sidebar
+            toggleMobileSidebar();
+            
+            // Show welcome message
+            addMessage('assistant', 'Hello! I\'m your NCERT Doubt Solver. Ask me any question about your school subjects and I\'ll help you with answers from official NCERT textbooks. 📚\n\nTry asking: "What is photosynthesis?" or "Explain fractions"');
+        }
+
+        // Check API connection
+        async function checkConnection() {
+            try {
+                // Since we're serving from Flask, we don't need a separate health check
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.innerHTML = `
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <i class="fas fa-circle text-xs mr-1"></i>
+                        Connected
+                    </span>
+                `;
+            } catch (error) {
+                document.getElementById('connectionStatus').innerHTML = `
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <i class="fas fa-circle text-xs mr-1"></i>
+                        Disconnected
+                    </span>
+                `;
+            }
+        }
+
+        // Auto-resize textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+            
+            // Enable/disable send button based on input
+            sendButton.disabled = !textarea.value.trim() && !extractedImageText;
+        }
+
+        // Handle image upload
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Preview image
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                imagePreviewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+            
+            // Upload to server for OCR
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            try {
+                showLoading();
+                const response = await fetch(`${API_BASE}/upload-image`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    extractedImageText = data.extracted_text;
+                    sendButton.disabled = !messageInput.value.trim() && !extractedImageText;
+                } else {
+                    alert('Failed to process image: ' + (data.error || 'Unknown error'));
+                    removeImage();
+                }
+            } catch (error) {
+                console.error('Image upload error:', error);
+                alert('Failed to upload image. Please try again.');
+                removeImage();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Remove image
+        function removeImage() {
+            document.getElementById('imageUpload').value = '';
+            imagePreviewContainer.classList.add('hidden');
+            extractedImageText = '';
+            sendButton.disabled = !messageInput.value.trim();
+        }
+
+        // Send message
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message && !extractedImageText) return;
+            
+            // Disable input
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            const imageUpload = document.getElementById('imageUpload');
+            imageUpload.disabled = true;
+            
+            // Add user message
+            addMessage('user', message, extractedImageText);
+            messageInput.value = '';
+            autoResize(messageInput);
+            
+            try {
+                showLoading();
+                
+                const gradeSelect = document.getElementById('desktopGradeSelect');
+                const subjectSelect = document.getElementById('desktopSubjectSelect');
+                const languageSelect = document.getElementById('desktopLanguageSelect');
+                
+                const requestData = {
+                    message: message,
+                    image_text: extractedImageText,
+                    grade: gradeSelect.value ? parseInt(gradeSelect.value) : null,
+                    subject: subjectSelect.value || null,
+                    language: languageSelect.value || 'English',
+                    conversation_id: currentConversationId
+                };
+                
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentConversationId = data.conversation_id;
+                    hideLoading();
+                    addMessage('assistant', data.answer, null, data);
+                } else {
+                    hideLoading();
+                    addMessage('assistant', 'Sorry, I encountered an error. Please try again.', null, { confidence: 'error' });
+                }
+            } catch (error) {
+                hideLoading();
+                addMessage('assistant', 'Sorry, I could not connect to the server. Please check your connection.', null, { confidence: 'error' });
+            }
+            
+            // Reset for next message
+            messageInput.disabled = false;
+            sendButton.disabled = true;
+            imageUpload.disabled = false;
+            extractedImageText = '';
+            imagePreviewContainer.classList.add('hidden');
+            imageUpload.value = '';
+            messageInput.focus();
+        }
+
+        // Add message to chat
+        function addMessage(sender, text, imageText = null, data = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-animation flex';
+            
+            if (sender === 'user') {
+                messageDiv.classList.add('justify-end');
+                messageDiv.innerHTML = `
+                    <div class="message-user p-4">
+                        <div class="whitespace-pre-wrap">${text}</div>
+                        ${imageText ? `<div class="mt-2 text-sm opacity-90"><strong>Image text:</strong> ${imageText}</div>` : ''}
+                    </div>
+                `;
+            } else {
+                const confidenceLevel = data?.confidence || 'medium';
+                const confidenceClass = getConfidenceClass(confidenceLevel);
+                
+                messageDiv.classList.add('justify-start');
+                messageDiv.innerHTML = `
+                    <div class="message-assistant p-4 ${confidenceClass}">
+                        <div class="prose prose-sm">
+                            <p class="whitespace-pre-wrap">${text}</p>
+                        </div>
+                        ${data ? createResponseMetadata(data) : ''}
+                        ${data?.citations ? createCitations(data.citations) : ''}
+                        <div class="mt-3 flex space-x-2">
+                            <button onclick="copyToClipboard(this)" class="text-xs text-gray-500 hover:text-gray-700" title="Copy answer">
+                                <i class="fas fa-copy mr-1"></i>Copy
+                            </button>
+                            <button onclick="openFeedbackModal(${messagesContainer.children.length})" class="text-xs text-gray-500 hover:text-gray-700" title="Rate this answer">
+                                <i class="fas fa-star mr-1"></i>Rate
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // Get confidence class for styling
+        function getConfidenceClass(confidence) {
+            if (typeof confidence === 'string') {
+                switch (confidence.toLowerCase()) {
+                    case 'high': return 'border-l-4 border-green-500';
+                    case 'medium': return 'border-l-4 border-yellow-500';
+                    case 'low': return 'border-l-4 border-red-500';
+                    case 'error': return 'border-l-4 border-red-500';
+                    default: return '';
+                }
+            } else {
+                if (confidence >= 0.8) return 'border-l-4 border-green-500';
+                if (confidence >= 0.6) return 'border-l-4 border-yellow-500';
+                return 'border-l-4 border-red-500';
+            }
+        }
+
+        // Create response metadata
+        function createResponseMetadata(data) {
+            const confidenceLevel = data.confidence || 'unknown';
+            const confidenceText = typeof confidenceLevel === 'string' ? 
+                confidenceLevel : 
+                `${Math.round(confidenceLevel * 100)}%`;
+            
+            const confidenceColor = typeof confidenceLevel === 'string' ?
+                {
+                    'high': 'text-green-600',
+                    'medium': 'text-yellow-600', 
+                    'low': 'text-red-600',
+                    'error': 'text-red-600'
+                }[confidenceLevel] || 'text-gray-600' :
+                confidenceLevel >= 0.8 ? 'text-green-600' :
+                confidenceLevel >= 0.6 ? 'text-yellow-600' :
+                'text-red-600';
+            
+            return `
+                <div class="mt-3 pt-3 border-t border-gray-200">
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <div class="flex items-center space-x-4">
+                            <span class="flex items-center">
+                                <i class="fas fa-brain mr-1"></i>
+                                Confidence: <span class="${confidenceColor} font-medium ml-1">${confidenceText}</span>
+                            </span>
+                            <span class="flex items-center">
+                                <i class="fas fa-language mr-1"></i>
+                                ${data.language || 'English'}
+                            </span>
+                        </div>
+                        <div>
+                            ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Create citations
+        function createCitations(citations) {
+            if (!citations.length) return '';
+            
+            const citationsHtml = citations.map((citation, index) => `
+                <div class="citation-item mb-2">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-medium">
+                                    ${citation.source}
+                                </span>
+                                <span class="text-xs text-gray-500">Page ${citation.page}</span>
+                            </div>
+                            <p class="text-sm text-gray-700">${citation.text}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            return `
+                <div class="citation-box p-4 mt-4">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-quote-right text-gray-400 mr-2"></i>
+                        <span class="text-sm font-medium text-gray-600">Sources (${citations.length})</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${citationsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(button) {
+            const messageDiv = button.closest('.message-assistant');
+            const text = messageDiv.querySelector('p').innerText;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check mr-1"></i>Copied!';
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                }, 2000);
+            });
+        }
+
+        // Open feedback modal
+        function openFeedbackModal(messageIndex) {
+            currentMessageIndex = messageIndex;
+            currentRating = 0;
+            document.getElementById('feedbackComment').value = '';
+            updateStarRating(0);
+            document.getElementById('submitFeedbackBtn').disabled = true;
+            document.getElementById('feedbackModal').classList.remove('hidden');
+        }
+
+        // Close feedback modal
+        function closeFeedbackModal() {
+            document.getElementById('feedbackModal').classList.add('hidden');
+        }
+
+        // Set rating
+        function setRating(rating) {
+            currentRating = rating;
+            updateStarRating(rating);
+            document.getElementById('submitFeedbackBtn').disabled = false;
+        }
+
+        // Update star rating display
+        function updateStarRating(rating) {
+            const stars = document.querySelectorAll('.star-rating');
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('active');
+                } else {
+                    star.classList.remove('active');
+                }
+            });
+        }
+
+        // Submit feedback
+        async function submitFeedback() {
+            if (!currentConversationId || currentRating === 0) return;
+            
+            try {
+                const comment = document.getElementById('feedbackComment').value;
+                
+                const requestData = {
+                    conversation_id: currentConversationId,
+                    message_index: currentMessageIndex,
+                    rating: currentRating,
+                    comment: comment
+                };
+                
+                const response = await fetch(`${API_BASE}/feedback`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (response.ok) {
+                    closeFeedbackModal();
+                    // Show confirmation
+                    const originalText = document.getElementById('submitFeedbackBtn').innerText;
+                    document.getElementById('submitFeedbackBtn').innerText = 'Submitted!';
+                    setTimeout(() => {
+                        document.getElementById('submitFeedbackBtn').innerText = originalText;
+                    }, 2000);
+                } else {
+                    alert('Failed to submit feedback. Please try again.');
+                }
+            } catch (error) {
+                console.error('Feedback error:', error);
+                alert('Failed to submit feedback. Please try again.');
+            }
+        }
+
+        // Show/hide loading overlay
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        // Scroll to bottom
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const feedbackModal = document.getElementById('feedbackModal');
+            if (event.target === feedbackModal) {
+                closeFeedbackModal();
+            }
+        };
+
+        // Close modals with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeFeedbackModal();
+            }
+        });
+    </script>
+</body>
+</html>
